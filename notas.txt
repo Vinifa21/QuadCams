@@ -1,0 +1,8 @@
+usar um plano de 256x256?
+fiz esse começo da minha cabeça, não sei se está de acordo com padrao python
+
+pelo visto o padrao da compgráfica é que qnt maior o y, mais "baixo" ele está
+
+to me baseando aq:
+https://opendsa-server.cs.vt.edu/ODSA/Books/CS3/html/PRquadtree.html
+
