@@ -1,0 +1,67 @@
+Check(Ponto, Quad)
+	if(Quad = "Preenchido") //Preenchido
+		return True
+	if(Quad = "Nada") //Nada
+		return False
+	if(Ponto.x >= Quad.Centro.x && Ponto.y < Quad.Centro.y)
+		return Check(Ponto, Quad.NE)
+	if(Ponto.x < Quad.Centro.x && Ponto.y < Quad.Centro.y)
+		return Check(Ponto, Quad.NW)
+	if(Ponto.x < Quad.Centro.x && Ponto.y >= Quad.Centro.y)
+		return Check(Ponto, Quad.SW)
+	if(Ponto.x >= Quad.Centro.x && Ponto.y >= Quad.Centro.y)
+		return Check(Ponto, Quad.SE)
+
+
+
+distancia(x1, x2, y1, y2)
+	return sqrt(pow(x1-x2,2) + pow(y1-y2,2))
+
+
+TotalmenteDentro(Ponto, Raio, Quad)
+	dist1 = distancia(Ponto.x, Ponto.y, Quad.TopLeft.x, Quad.TopLeft.y)	
+	dist2 = distancia(Ponto.x, Ponto.y, Quad.TopLeft.x + Quad.Lado, Quad.TopLeft.y)
+	dist3 = distancia(Ponto.x, Ponto.y, Quad.TopLeft.x, Quad.TopLeft.y - Quad.Lado)
+	dist4 = distancia(Ponto.x, Ponto.y, Quad.TopLeft.x + Quad.Lado, Quad.TopLeft.y - Quad.Lado)
+	maiordistancia = max(max(dist1,dist2),max(dist3,dist4))
+	if(maiordistancia <= Raio)
+		return True
+	return False
+
+
+
+TotalmenteFora(Ponto, Raio, Quad)
+	x_perto = max(Quad.TopLeft.x, min(Ponto.x, Quad.TopLeft.x + Quad.Lado))
+	y_perto = max(Quad.TopLeft.y - Quad.Lado, min(Ponto.y, Quad.TopLeft.y))
+	distanciaminima = distancia(Ponto.x, Ponto.y, x_perto, y_perto)
+	if(distanciaminima > Raio)
+		return True
+	return False
+
+
+
+AtualizaDados(Ponto, Raio, Quad)
+	if(TotalmenteFora(Ponto, Raio, Quad))
+		return
+	if(TotalmenteDentro(Ponto, Raio, Quad))
+		Quad.Estado = 1
+		return
+	if(Quad.SW = NULL)
+		Quad.NW = Quad(Ponto(Quad.TopLeft.x, Quad.TopLeft.y), Quad.Lado/2)
+		Quad.NE = Quad(Ponto(Quad.TopLeft.x + Quad.Lado/2, Quad.TopLeft.y), Quad.Lado/2)
+		Quad.SW = Quad(Ponto(Quad.TopLeft.x, Quad.TopLeft.y + Quad.Lado/2), Quad.Lado/2)
+		Quad.SE = Quad(Ponto(Quad.TopLeft.x + Quad.Lado/2, Quad.TopLeft.y + Quad.Lado/2), Quad.Lado/2)
+	AtualizaDados(Ponto, Raio, Quad.SW)
+	AtualizaDados(Ponto, Raio, Quad.SE)
+	AtualizaDados(Ponto, Raio, Quad.NW)
+	AtualizaDados(Ponto, Raio, Quad.NE)
+	
+
+AddCam(Ponto, Raio, Quad, Lista)
+	Camera cam = (Ponto, Raio)
+	AtualizaDados(Ponto, Raio, Quad)
+	Lista.push_back(cam)
+
+
+
+
