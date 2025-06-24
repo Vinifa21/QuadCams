@@ -1,8 +1,12 @@
-usar um plano de 256x256?
-fiz esse começo da minha cabeça, não sei se está de acordo com padrao python
+Region QUADTREE
 
 pelo visto o padrao da compgráfica é que qnt maior o y, mais "baixo" ele está
 
-to me baseando aq:
-https://opendsa-server.cs.vt.edu/ODSA/Books/CS3/html/PRquadtree.html
 
+quadtree.py IGNORARRRRRR
+
+
+PRÓX PASSOS:
+    implementar add_cam
+    organizar cód (colocar métodos na classe camera(?)
+    testar funcionalidades

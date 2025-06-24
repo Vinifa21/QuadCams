@@ -10,3 +10,7 @@ class Ponto:
 
     def print_ponto(self):
         print("(", self.x, ",", self.y, ")")
+
+
+def dist(x1, x2, y1, y2):
+    return pow((pow(x1-x2, 2) + pow(y1-y2, 2)), 0.5)
