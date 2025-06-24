@@ -1,6 +1,6 @@
 class Ponto:
     def __init__(self, x, y):
-        if x <= 128 and x >= -128 and y <= 128  and y >= -128:
+        if x <= 128 and x >= -128 and y <= 128  and y >= -128: # considerando lado = 256
             self.x = x
             self.y = y
         else:
