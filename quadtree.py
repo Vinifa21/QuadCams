@@ -1,82 +1,159 @@
-#PR QUAD-TREE:
-#   CHAVES SÓ ESTÃO GUARDADAS NAS FOLHAS
-#   TAMANHO DO "PLANO" DEVE ESTAR DEFINIDO (256x256)?
-#   representacao diferente de internal Node e leaf node
+import numpy as np
 
-from ponto import Ponto
-from nodes import Node_folha, Node_interno
-class Quad_Tree:
-    def __init__(self, top_left = Ponto(-128, 128), lado = 256):
-        #definem limites do plano
-        self.top_left = top_left
-        self.lado = lado
-        self.root = None
+class Ponto:
+    """
+    Representa um único ponto com coordenadas x e y.
+    """
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
 
-    def add_ponto(self, ponto): # método público (que chamaremos na main)
-        current = self.root
+class Circulo:
+    """
+    Representa um círculo com um centro (x, y) e um raio.
+    """
+    def __init__(self, x, y, r):
+        self.x = x
+        self.y = y
+        self.raio = r
+        self.raio_ao_quadrado = self.raio**2
 
-        self.root = self.add_ponto_recursivo(ponto, current, Ponto(-128, 128), 256)
+    def contem_ponto(self, ponto):
+        """Verifica se um ponto está dentro deste círculo."""
+        dist_quadrada = (ponto.x - self.x)**2 + (ponto.y - self.y)**2
+        return dist_quadrada < self.raio_ao_quadrado
 
+class Retangulo:
+    """
+    Representa uma caixa delimitadora alinhada aos eixos (AABB) com um centro (x, y),
+    largura (w) e altura (h).
+    """
+    def __init__(self, x, y, w, h):
+        self.x = x  # Centro x
+        self.y = y  # Centro y
+        self.w = w  # Meia-largura
+        self.h = h  # Meia-altura
 
-# preciso descobrir como fazer a comparação em add_ponto_recursivo (decidir p/ qual quadrante vou)
+    def intersecta_circulo(self, circulo):
+        """
+        Verifica se o retângulo cruza com um determinado círculo.
 
-    def add_ponto_recursivo(self, ponto, c, top_left, lado):  # método private( chamado internamete para realizar a recursão)
-        current = c
-        # caso base: acho um node_interno vazio (com None) para inserir o ponto
-        # caso recursivo: de acordo com as coordenadas, ando para próximo node
-            # OU acho node vazio (caso base)
-            # OU acho Node Interno (escolho uma direção)
-            # OU, acho um Node Folha (o troco por um interno, e re-insiro o ponto antigo e o novo ponto)
+        Args:
+            circulo (Circulo): O círculo para verificar a interseção.
 
-        if current is None:  # achei lugar para inserir o ponto!
-            current = Node_folha(ponto)
-            return current # retorna minha folha recém-criada
+        Returns:
+            bool: True se eles se cruzam, False caso contrário.
+        """
+        # Encontra o ponto mais próximo no retângulo ao centro do círculo
+        x_mais_proximo = np.clip(circulo.x, self.x - self.w, self.x + self.w)
+        y_mais_proximo = np.clip(circulo.y, self.y - self.h, self.y + self.h)
 
-        elif isinstance(current, Node_interno):  # current é um node interno?
-            mid_x = top_left.x + (lado / 2)
-            mid_y = top_left.y + (lado / 2)  # <<-- SEMPRE SOMANDO!
+        # Calcula a distância entre o centro do círculo e este ponto mais próximo
+        dist_x = circulo.x - x_mais_proximo
+        dist_y = circulo.y - y_mais_proximo
 
-            # verifico para qual quadrante eu vou (facil de entender if's com desenho da tree)
-            if (ponto.x >= mid_x and ponto.y < mid_y ):
-                novo_top_left = Ponto(mid_x, top_left.y) # y se mantém
-                novo_lado = lado / 2
-                current.NE = self.add_ponto_recursivo(ponto, current.NE, novo_top_left, novo_lado)
-                #current.NE salva qual é o filho à Nordeste (caso lá já seja None) (caso não seja None, retorna seu atual filho NE msm)
+        # Se a distância for menor que o raio do círculo, eles se cruzam
+        distancia_quadrada = (dist_x**2) + (dist_y**2)
+        return distancia_quadrada < circulo.raio_ao_quadrado
 
-            elif (ponto.x < mid_x and ponto.y < mid_y ):
-                novo_top_left = top_left  # top_left se mantém
-                novo_lado = lado / 2
-                current.NW = self.add_ponto_recursivo(ponto, current.NW, novo_top_left, novo_lado)
+    def esta_totalmente_contido_no_circulo(self, circulo):
+        """
+        Verifica se o retângulo está totalmente contido dentro de um determinado círculo.
+        Isso é verdade se todos os quatro cantos do retângulo estiverem dentro do círculo.
+        """
+        cantos = [
+            (self.x + self.w, self.y + self.h), # Canto superior direito
+            (self.x - self.w, self.y + self.h), # Canto superior esquerdo
+            (self.x + self.w, self.y - self.h), # Canto inferior direito
+            (self.x - self.w, self.y - self.h)  # Canto inferior esquerdo
+        ]
 
-            elif (ponto.x < mid_x and ponto.y >= mid_y ):
-                # x se mantém
-                novo_top_left = Ponto(top_left.x, mid_y)
-                novo_lado = lado / 2
-                current.SW = self.add_ponto_recursivo(ponto, current.SW, novo_top_left, novo_lado)
+        for canto_x, canto_y in cantos:
+            # Calcula a distância ao quadrado do canto ao centro do círculo
+            dist_quadrada = (canto_x - circulo.x)**2 + (canto_y - circulo.y)**2
+            # Se algum canto estiver fora ou na borda do círculo, ele não está totalmente contido
+            if dist_quadrada >= circulo.raio_ao_quadrado:
+                return False
+        
+        # Se todos os cantos estiverem dentro, o retângulo está totalmente contido
+        return True
 
-            elif (ponto.x >= mid_x and ponto.y >= mid_y ):
-                novo_top_left = Ponto(mid_x, mid_y)
-                novo_lado = lado / 2
-                current.SE = self.add_ponto_recursivo(ponto, current.SE, novo_top_left, novo_lado)
+class QuadTree:
+    """
+    A classe QuadTree.
+    Cada nó na árvore representa uma região retangular.
+    """
+    def __init__(self, fronteira, profundidade_maxima=8, profundidade=0):
+        """
+        Inicializa um nó QuadTree.
 
-        elif isinstance(current, Node_folha):  # current é um Node_folha (possui uma key)
-            ponto_existente = current.ponto
-            novo_node_interno = Node_interno(top_left, lado)
+        Args:
+            fronteira (Retangulo): A fronteira retangular deste nó da quadtree.
+            profundidade_maxima (int): A profundidade máxima para subdividir.
+            profundidade (int): A profundidade atual deste nó na árvore.
+        """
+        self.fronteira = fronteira
+        self.profundidade_maxima = profundidade_maxima
+        self.profundidade = profundidade
 
-            self.add_ponto_recursivo(ponto_existente, novo_node_interno, top_left, lado)# re-insiro meu ponto antigo
-            self.add_ponto_recursivo(ponto, novo_node_interno, top_left, lado) # insiro meu ponto novo
+        self.filhos = [] # Contém os quatro nós filhos da QuadTree
+        self.e_folha = True
 
-            return novo_node_interno # vai ser pego pelo current.NE = (ISSO)
+    def subdividir(self):
+        """
+        Divide o nó atual em quatro quadrantes (filhos) iguais.
+        """
+        # Obtém as dimensões para os novos quadrantes
+        centro_x = self.fronteira.x
+        centro_y = self.fronteira.y
+        nova_largura = self.fronteira.w / 2
+        nova_altura = self.fronteira.h / 2
+        proxima_profundidade = self.profundidade + 1
 
+        # Cria os quatro filhos
+        # Nordeste
+        ne = Retangulo(centro_x + nova_largura, centro_y + nova_altura, nova_largura, nova_altura)
+        self.filhos.append(QuadTree(ne, self.profundidade_maxima, proxima_profundidade))
 
+        # Noroeste
+        no = Retangulo(centro_x - nova_largura, centro_y + nova_altura, nova_largura, nova_altura)
+        self.filhos.append(QuadTree(no, self.profundidade_maxima, proxima_profundidade))
 
-            # preciso transforma-lo num nó intermediário e reinserir sua chave(temp)+ a nova chave
-            temp = current.key
-            current = Node_interno()
-            self.add_ponto_recursivo(temp, current, top_left, lado)  # adicono ponto antigo
-            self.add_ponto_recursivo(ponto, current, top_left, lado)  # adiciono meu novo ponto
+        # Sudeste
+        se = Retangulo(centro_x + nova_largura, centro_y - nova_altura, nova_largura, nova_altura)
+        self.filhos.append(QuadTree(se, self.profundidade_maxima, proxima_profundidade))
 
-        return current # novo node inserido, retorno a root atualizada para a função add_ponto
-##########
+        # Sudoeste
+        so = Retangulo(centro_x - nova_largura, centro_y - nova_altura, nova_largura, nova_altura)
+        self.filhos.append(QuadTree(so, self.profundidade_maxima, proxima_profundidade))
 
+        self.e_folha = False
 
+    def refinar(self, formas):
+        """
+        Refina recursivamente a quadtree com base na interseção com as fronteiras de uma lista de formas.
+        Um nó é subdividido se cruzar a fronteira de QUALQUER uma das formas na lista.
+        """
+        deve_subdividir = False
+        # Verifica se a fronteira deste nó cruza a fronteira de algum círculo
+        for forma in formas:
+            if self.fronteira.intersecta_circulo(forma) and not self.fronteira.esta_totalmente_contido_no_circulo(forma):
+                deve_subdividir = True
+                break  # Encontrou um motivo para subdividir, não precisa verificar outros
+
+        if deve_subdividir and self.profundidade < self.profundidade_maxima:
+            self.subdividir()
+            for filho in self.filhos:
+                filho.refinar(formas) # Passa a lista de formas para os filhos
+
+    def obter_nos_folha(self):
+        """
+        Percorre a árvore e retorna todos os nós folha.
+        """
+        if self.e_folha:
+            return [self]
+        else:
+            nos = []
+            for filho in self.filhos:
+                nos.extend(filho.obter_nos_folha())
+            return nos
