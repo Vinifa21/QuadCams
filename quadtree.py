@@ -34,15 +34,14 @@ class Retangulo:
         self.w = w  # Meia-largura
         self.h = h  # Meia-altura
 
+    def contem_ponto(self, ponto):
+        """Verifica se um ponto está dentro deste retângulo."""
+        return (self.x - self.w <= ponto.x < self.x + self.w and
+                self.y - self.h <= ponto.y < self.y + self.h)
+
     def intersecta_circulo(self, circulo):
         """
         Verifica se o retângulo cruza com um determinado círculo.
-
-        Args:
-            circulo (Circulo): O círculo para verificar a interseção.
-
-        Returns:
-            bool: True se eles se cruzam, False caso contrário.
         """
         # Encontra o ponto mais próximo no retângulo ao centro do círculo
         x_mais_proximo = np.clip(circulo.x, self.x - self.w, self.x + self.w)
@@ -59,92 +58,96 @@ class Retangulo:
     def esta_totalmente_contido_no_circulo(self, circulo):
         """
         Verifica se o retângulo está totalmente contido dentro de um determinado círculo.
-        Isso é verdade se todos os quatro cantos do retângulo estiverem dentro do círculo.
         """
         cantos = [
-            (self.x + self.w, self.y + self.h), # Canto superior direito
-            (self.x - self.w, self.y + self.h), # Canto superior esquerdo
-            (self.x + self.w, self.y - self.h), # Canto inferior direito
-            (self.x - self.w, self.y - self.h)  # Canto inferior esquerdo
+            (self.x + self.w, self.y + self.h), (self.x - self.w, self.y + self.h),
+            (self.x + self.w, self.y - self.h), (self.x - self.w, self.y - self.h)
         ]
-
         for canto_x, canto_y in cantos:
-            # Calcula a distância ao quadrado do canto ao centro do círculo
             dist_quadrada = (canto_x - circulo.x)**2 + (canto_y - circulo.y)**2
-            # Se algum canto estiver fora ou na borda do círculo, ele não está totalmente contido
             if dist_quadrada >= circulo.raio_ao_quadrado:
                 return False
-        
-        # Se todos os cantos estiverem dentro, o retângulo está totalmente contido
         return True
+
+    def intersecta_retangulo(self, outro):
+        """Verifica se este retângulo se cruza com outro retângulo."""
+        # Não há sobreposição se um retângulo estiver à esquerda do outro
+        if self.x + self.w < outro.x - outro.w or self.x - self.w > outro.x + outro.w:
+            return False
+        # Não há sobreposição se um retângulo estiver acima do outro
+        if self.y + self.h < outro.y - outro.h or self.y - self.h > outro.y + outro.h:
+            return False
+        return True
+        
+    def contem_retangulo(self, outro):
+        """Verifica se este retângulo contém totalmente outro retângulo."""
+        return (self.x - self.w <= outro.x - outro.w and
+                self.x + self.w >= outro.x + outro.w and
+                self.y - self.h <= outro.y - outro.h and
+                self.y + self.h >= outro.y + outro.h)
+
 
 class QuadTree:
     """
     A classe QuadTree.
-    Cada nó na árvore representa uma região retangular.
     """
     def __init__(self, fronteira, profundidade_maxima=8, profundidade=0):
-        """
-        Inicializa um nó QuadTree.
-
-        Args:
-            fronteira (Retangulo): A fronteira retangular deste nó da quadtree.
-            profundidade_maxima (int): A profundidade máxima para subdividir.
-            profundidade (int): A profundidade atual deste nó na árvore.
-        """
         self.fronteira = fronteira
         self.profundidade_maxima = profundidade_maxima
         self.profundidade = profundidade
-
-        self.filhos = [] # Contém os quatro nós filhos da QuadTree
+        self.filhos = []
         self.e_folha = True
 
     def subdividir(self):
         """
         Divide o nó atual em quatro quadrantes (filhos) iguais.
         """
-        # Obtém as dimensões para os novos quadrantes
-        centro_x = self.fronteira.x
-        centro_y = self.fronteira.y
-        nova_largura = self.fronteira.w / 2
-        nova_altura = self.fronteira.h / 2
+        centro_x, centro_y = self.fronteira.x, self.fronteira.y
+        nova_largura, nova_altura = self.fronteira.w / 2, self.fronteira.h / 2
         proxima_profundidade = self.profundidade + 1
 
         # Cria os quatro filhos
-        # Nordeste
         ne = Retangulo(centro_x + nova_largura, centro_y + nova_altura, nova_largura, nova_altura)
         self.filhos.append(QuadTree(ne, self.profundidade_maxima, proxima_profundidade))
-
-        # Noroeste
+        
         no = Retangulo(centro_x - nova_largura, centro_y + nova_altura, nova_largura, nova_altura)
         self.filhos.append(QuadTree(no, self.profundidade_maxima, proxima_profundidade))
 
-        # Sudeste
         se = Retangulo(centro_x + nova_largura, centro_y - nova_altura, nova_largura, nova_altura)
         self.filhos.append(QuadTree(se, self.profundidade_maxima, proxima_profundidade))
 
-        # Sudoeste
         so = Retangulo(centro_x - nova_largura, centro_y - nova_altura, nova_largura, nova_altura)
         self.filhos.append(QuadTree(so, self.profundidade_maxima, proxima_profundidade))
-
+        
         self.e_folha = False
 
     def refinar(self, formas):
         """
-        Refina recursivamente a quadtree com base na interseção com as fronteiras de uma lista de formas.
-        Um nó é subdividido se cruzar a fronteira de QUALQUER uma das formas na lista.
+        Refina recursivamente a quadtree com base na interseção com as fronteiras de uma lista de formas (círculos ou retângulos).
         """
-        deve_subdividir = False
-        # Verifica se a fronteira deste nó cruza a fronteira de algum círculo
-        for forma in formas:
-            if self.fronteira.intersecta_circulo(forma) and not self.fronteira.esta_totalmente_contido_no_circulo(forma):
-                deve_subdividir = True
-                break  # Encontrou um motivo para subdividir, não precisa verificar outros
+        if self.profundidade >= self.profundidade_maxima:
+            return
 
-        if deve_subdividir and self.profundidade < self.profundidade_maxima:
+        deve_subdividir = False
+        for forma in formas:
+            intersecta = False
+            # Lógica de refinamento: subdividir se a fronteira do nó da árvore
+            # cruza a borda de uma forma (i.e., intersecta mas não está totalmente contida)
+            if isinstance(forma, Circulo):
+                if self.fronteira.intersecta_circulo(forma) and not self.fronteira.esta_totalmente_contido_no_circulo(forma):
+                    deve_subdividir = True
+                    break
+            elif isinstance(forma, Retangulo):
+                # Para retângulos, subdividimos se a fronteira do nó cruza a construção
+                # e a construção não contém completamente o nó (ou seja, cruza a borda).
+                if self.fronteira.intersecta_retangulo(forma) and not forma.contem_retangulo(self.fronteira):
+                    deve_subdividir = True
+                    break
+        
+        if deve_subdividir:
             self.subdividir()
             for filho in self.filhos:
-                filho.refinar(formas) # Passa a lista de formas para os filhos
+                filho.refinar(formas)
 
     def obter_nos_folha(self):
         """
